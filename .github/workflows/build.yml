@@ -15,17 +15,34 @@ jobs:
       - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.13' }
-      - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
-      - run: gradle :app:assembleDebug --no-daemon --stacktrace
-      - name: Prepare APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk ScholarWatch-v0.1.0.apk
-      - uses: actions/upload-artifact@v4
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Build APK and capture log
+        id: build
+        shell: bash
+        run: |
+          set +e
+          gradle :app:assembleDebug --no-daemon --stacktrace > build.log 2>&1
+          CODE=$?
+          cat build.log
+          if [ $CODE -eq 0 ] && [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp app/build/outputs/apk/debug/app-debug.apk ScholarWatch-v0.1.0.apk
+            base64 ScholarWatch-v0.1.0.apk | fold -w 4000 > ScholarWatch-v0.1.0.apk.b64
+            sha256sum ScholarWatch-v0.1.0.apk > ScholarWatch-v0.1.0.sha256
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+      - name: Upload APK artifact
+        if: steps.build.outputs.ok == 'true'
+        uses: actions/upload-artifact@v4
         with:
           name: ScholarWatch-APK
           path: ScholarWatch-v0.1.0.apk
           if-no-files-found: error
       - name: Publish installable APK
-        if: github.ref == 'refs/heads/main'
+        if: steps.build.outputs.ok == 'true' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: scholarwatch-v0.1.0
@@ -33,3 +50,16 @@ jobs:
           body: Android MVP: OpenAlex papers, public news candidates, local watchlist, and weekly refresh.
           files: ScholarWatch-v0.1.0.apk
           make_latest: true
+      - name: Commit build report
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          git config user.name github-actions
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add build.log
+          if [ -f ScholarWatch-v0.1.0.apk.b64 ]; then git add ScholarWatch-v0.1.0.apk.b64 ScholarWatch-v0.1.0.sha256; fi
+          git commit -m "Publish ScholarWatch build report [skip ci]" || exit 0
+          git push origin HEAD:main
+      - name: Fail if build failed
+        if: steps.build.outputs.ok != 'true'
+        run: exit 1
