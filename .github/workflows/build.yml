@@ -1,8 +1,10 @@
 name: Build APK
 on:
   push:
-    branches: [ scholarwatch-build ]
+    branches: [ scholarwatch-build, main ]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,8 +17,19 @@ jobs:
         with: { gradle-version: '8.13' }
       - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Prepare APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk ScholarWatch-v0.1.0.apk
       - uses: actions/upload-artifact@v4
         with:
           name: ScholarWatch-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ScholarWatch-v0.1.0.apk
           if-no-files-found: error
+      - name: Publish installable APK
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: scholarwatch-v0.1.0
+          name: ScholarWatch v0.1.0
+          body: Android MVP: OpenAlex papers, public news candidates, local watchlist, and weekly refresh.
+          files: ScholarWatch-v0.1.0.apk
+          make_latest: true
