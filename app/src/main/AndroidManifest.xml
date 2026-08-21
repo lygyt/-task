@@ -4,9 +4,11 @@
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
   <application android:allowBackup="true" android:label="ScholarWatch" android:theme="@android:style/Theme.Material.Light.NoActionBar">
-    <activity android:name=".MainActivity" android:exported="true">
+    <activity android:name=".TalentRadarActivity" android:exported="true">
       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
     </activity>
+    <activity android:name=".MainActivity" android:exported="false"/>
     <service android:name=".RefreshJobService" android:exported="false" android:permission="android.permission.BIND_JOB_SERVICE"/>
+    <service android:name=".TalentRefreshJobService" android:exported="false" android:permission="android.permission.BIND_JOB_SERVICE"/>
   </application>
 </manifest>
